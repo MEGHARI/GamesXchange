@@ -24,27 +24,27 @@ import org.json.JSONObject;
 import butterknife.ButterKnife;
 import butterknife.Bind;
 
-public class LoginActivity extends AppCompatActivity {
-    private static final String TAG = "LoginActivity";
+public class ConfirmSubscriptionActivity extends AppCompatActivity {
+    private static final String TAG = "ConfirmSubscriptionActivity";
+    private static final int REQUEST_SIGNUP = 0;
+    public static String mailAndPassword= " , ";
 
 
-    @Bind(R.id.input_email) EditText emailText;
-    @Bind(R.id.input_password) EditText passwordText;
+    @Bind(R.id.input_code) EditText codeText;
     @Bind(R.id.btn_login) Button loginButton;
     @Bind(R.id.link_signup) TextView signupLink;
-    @Bind(R.id.link_forgot) TextView forgotLink;
-    
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
+        setContentView(R.layout.activity_confirmsubscription);
         ButterKnife.bind(this);
-        
+        mailAndPassword = getIntent().getStringExtra(mailAndPassword);
         loginButton.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
-                login();
+                confirm();
             }
         });
 
@@ -54,45 +54,36 @@ public class LoginActivity extends AppCompatActivity {
             public void onClick(View v) {
                 // Start the Signup activity
                 Intent intent = new Intent(getApplicationContext(), SignupActivity.class);
-                startActivity(intent);
-                finish();
-                overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
-            }
-        });
-        forgotLink.setOnClickListener(new View.OnClickListener() {
-
-            @Override
-            public void onClick(View v) {
-                // Start the Forgotactivity
-                Intent intent = new Intent(getApplicationContext(), ForgotPasswordActivity.class);
-                startActivity(intent);
+                startActivityForResult(intent, REQUEST_SIGNUP);
                 finish();
                 overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
             }
         });
     }
 
-    public void login() {
+    public void confirm() {
         if (!validate()) {
-            onLoginFailed();
+            onConfirmSuccess();
             return;
         }
 
         loginButton.setEnabled(false);
-        final ProgressDialog progressDialog = new ProgressDialog(LoginActivity.this,
+        final ProgressDialog progressDialog = new ProgressDialog(ConfirmSubscriptionActivity.this,
                 R.style.AppTheme_Dark_Dialog);
         progressDialog.setIndeterminate(true);
         progressDialog.setMessage("Authenticating...");
         progressDialog.show();
 
-        final String email = emailText.getText().toString();
-        final String password = passwordText.getText().toString();
+        String email = mailAndPassword.split(",")[0];
+        String password = mailAndPassword.split(",")[1];
+        String code = codeText.getText().toString();
 
         JSONObject request = new JSONObject();
 
         try {
             request.put("mail", email);
             request.put("password", password);
+            request.put("code",code);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -102,21 +93,21 @@ public class LoginActivity extends AppCompatActivity {
         // Initialize a new JsonObjectRequest instance
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.POST,
-                "http://192.168.43.222:8080/DarProject/user/login",
+                "http://192.168.43.222:8080/DarProject/user/confirmCode",
                 request,
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
                         Toast.makeText(getBaseContext(), response.toString(), Toast.LENGTH_LONG).show();
-                        // enregistrer les donner
+                        progressDialog.dismiss();
                         new android.os.Handler().postDelayed(
-                            new Runnable() {
-                                public void run() {
-                                    // On complete call either onLoginSuccess or onLoginFailed
-                                    onLoginSuccess();
-                                    progressDialog.dismiss();
-                                }
-                            }, 3000);
+                                new Runnable() {
+                                    public void run() {
+                                        // On complete call either onLoginSuccess or onLoginFailed
+                                        onConfirmSuccess();
+                                        progressDialog.dismiss();
+                                    }
+                                }, 3000);
                     }
                 },
                 new Response.ErrorListener(){
@@ -128,17 +119,7 @@ public class LoginActivity extends AppCompatActivity {
                             JSONObject json;
                             try {
                                 json = new JSONObject(error.getMessage());
-                                if(json.getJSONObject("error").optString("message").equals("l'utilisateur doit confirmer l'inscription")){
-                                    Intent intent = new Intent(getApplicationContext(), ConfirmSubscriptionActivity.class);
-                                    Toast.makeText(getBaseContext(),"l'utilisateur doit confirmer l'inscription", Toast.LENGTH_LONG).show();
-                                    intent.putExtra(ConfirmSubscriptionActivity.mailAndPassword,email+","+password);
-                                    startActivity(intent);
-                                    finish();
-                                    overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
-
-
-                                }else
-                                    Toast.makeText(getBaseContext(), json.getJSONObject("error").optString("message","mail ou mot de passe invalide"), Toast.LENGTH_LONG).show();
+                                Toast.makeText(getBaseContext(), json.getJSONObject("error").optString("message","mail ou mot de passe invalide"), Toast.LENGTH_LONG).show();
 
                             } catch (JSONException e) {
                                 e.printStackTrace();
@@ -166,12 +147,12 @@ public class LoginActivity extends AppCompatActivity {
         moveTaskToBack(true);
     }
 
-    public void onLoginSuccess() {
+    public void onConfirmSuccess() {
         loginButton.setEnabled(true);
         finish();
     }
 
-    public void onLoginFailed() {
+    public void onConfirmFailed() {
         Toast.makeText(getBaseContext(), "Login failed", Toast.LENGTH_LONG).show();
         loginButton.setEnabled(true);
     }
@@ -179,21 +160,14 @@ public class LoginActivity extends AppCompatActivity {
     public boolean validate() {
         boolean valid = true;
 
-        String email = emailText.getText().toString();
-        String password = passwordText.getText().toString();
+        String code= codeText.getText().toString();
 
-        if (email.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            emailText.setError("enter a valid email address");
+
+        if (code.isEmpty()) {
+            codeText.setError("check your code");
             valid = false;
         } else {
-            emailText.setError(null);
-        }
-
-        if (password.isEmpty() || password.length() < 6) {
-            passwordText.setError("greater than 6 alphanumeric characters");
-            valid = false;
-        } else {
-            passwordText.setError(null);
+            codeText.setError(null);
         }
 
         return valid;

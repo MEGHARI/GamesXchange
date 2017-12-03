@@ -24,27 +24,26 @@ import org.json.JSONObject;
 import butterknife.ButterKnife;
 import butterknife.Bind;
 
-public class LoginActivity extends AppCompatActivity {
-    private static final String TAG = "LoginActivity";
+public class ForgotPasswordActivity extends AppCompatActivity {
+    private static final String TAG = "ForgotPasswordActivity";
+    private static final int REQUEST_Login = 0;
+
 
 
     @Bind(R.id.input_email) EditText emailText;
-    @Bind(R.id.input_password) EditText passwordText;
-    @Bind(R.id.btn_login) Button loginButton;
+    @Bind(R.id.btn_forgot) Button forgotButton;
     @Bind(R.id.link_signup) TextView signupLink;
-    @Bind(R.id.link_forgot) TextView forgotLink;
-    
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
+        setContentView(R.layout.activity_forgot_password);
         ButterKnife.bind(this);
-        
-        loginButton.setOnClickListener(new View.OnClickListener() {
+        forgotButton.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
-                login();
+                forgot();
             }
         });
 
@@ -52,47 +51,35 @@ public class LoginActivity extends AppCompatActivity {
 
             @Override
             public void onClick(View v) {
-                // Start the Signup activity
-                Intent intent = new Intent(getApplicationContext(), SignupActivity.class);
-                startActivity(intent);
-                finish();
-                overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
-            }
-        });
-        forgotLink.setOnClickListener(new View.OnClickListener() {
-
-            @Override
-            public void onClick(View v) {
-                // Start the Forgotactivity
-                Intent intent = new Intent(getApplicationContext(), ForgotPasswordActivity.class);
-                startActivity(intent);
+                // Start the Login activity
+                Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
+                startActivityForResult(intent, REQUEST_Login);
                 finish();
                 overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
             }
         });
     }
 
-    public void login() {
+    public void forgot() {
         if (!validate()) {
-            onLoginFailed();
+            onRecoverPasswordFailed();
             return;
         }
 
-        loginButton.setEnabled(false);
-        final ProgressDialog progressDialog = new ProgressDialog(LoginActivity.this,
+        forgotButton.setEnabled(false);
+        final ProgressDialog progressDialog = new ProgressDialog(ForgotPasswordActivity.this,
                 R.style.AppTheme_Dark_Dialog);
         progressDialog.setIndeterminate(true);
-        progressDialog.setMessage("Authenticating...");
+        progressDialog.setMessage("Password...");
         progressDialog.show();
 
-        final String email = emailText.getText().toString();
-        final String password = passwordText.getText().toString();
+
+        String email = emailText.getText().toString();
 
         JSONObject request = new JSONObject();
 
         try {
             request.put("mail", email);
-            request.put("password", password);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -102,21 +89,17 @@ public class LoginActivity extends AppCompatActivity {
         // Initialize a new JsonObjectRequest instance
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.POST,
-                "http://192.168.43.222:8080/DarProject/user/login",
+                "http://192.168.43.222:8080/DarProject/user/recoverPassword",
                 request,
                 new Response.Listener<JSONObject>() {
                     @Override
                     public void onResponse(JSONObject response) {
-                        Toast.makeText(getBaseContext(), response.toString(), Toast.LENGTH_LONG).show();
-                        // enregistrer les donner
-                        new android.os.Handler().postDelayed(
-                            new Runnable() {
-                                public void run() {
-                                    // On complete call either onLoginSuccess or onLoginFailed
-                                    onLoginSuccess();
-                                    progressDialog.dismiss();
-                                }
-                            }, 3000);
+                        Toast.makeText(getBaseContext(),"check your mail", Toast.LENGTH_LONG).show();
+                        Intent intent = new Intent(getApplicationContext(), LoginActivity.class);
+                        startActivity(intent);
+                        finish();
+                        overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
+
                     }
                 },
                 new Response.ErrorListener(){
@@ -128,22 +111,12 @@ public class LoginActivity extends AppCompatActivity {
                             JSONObject json;
                             try {
                                 json = new JSONObject(error.getMessage());
-                                if(json.getJSONObject("error").optString("message").equals("l'utilisateur doit confirmer l'inscription")){
-                                    Intent intent = new Intent(getApplicationContext(), ConfirmSubscriptionActivity.class);
-                                    Toast.makeText(getBaseContext(),"l'utilisateur doit confirmer l'inscription", Toast.LENGTH_LONG).show();
-                                    intent.putExtra(ConfirmSubscriptionActivity.mailAndPassword,email+","+password);
-                                    startActivity(intent);
-                                    finish();
-                                    overridePendingTransition(R.anim.push_left_in, R.anim.push_left_out);
-
-
-                                }else
-                                    Toast.makeText(getBaseContext(), json.getJSONObject("error").optString("message","mail ou mot de passe invalide"), Toast.LENGTH_LONG).show();
+                                Toast.makeText(getBaseContext(), json.getJSONObject("error").optString("message","invalid mail"), Toast.LENGTH_LONG).show();
 
                             } catch (JSONException e) {
                                 e.printStackTrace();
                             }
-                            loginButton.setEnabled(true);
+                            forgotButton.setEnabled(true);
                             progressDialog.dismiss();
 
                         }
@@ -166,21 +139,21 @@ public class LoginActivity extends AppCompatActivity {
         moveTaskToBack(true);
     }
 
-    public void onLoginSuccess() {
-        loginButton.setEnabled(true);
+    public void onRecoverPasswordSuccess() {
+        forgotButton.setEnabled(true);
         finish();
     }
 
-    public void onLoginFailed() {
+    public void onRecoverPasswordFailed() {
         Toast.makeText(getBaseContext(), "Login failed", Toast.LENGTH_LONG).show();
-        loginButton.setEnabled(true);
+        forgotButton.setEnabled(true);
     }
 
     public boolean validate() {
         boolean valid = true;
 
-        String email = emailText.getText().toString();
-        String password = passwordText.getText().toString();
+        String email= emailText.getText().toString();
+
 
         if (email.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
             emailText.setError("enter a valid email address");
@@ -189,13 +162,7 @@ public class LoginActivity extends AppCompatActivity {
             emailText.setError(null);
         }
 
-        if (password.isEmpty() || password.length() < 6) {
-            passwordText.setError("greater than 6 alphanumeric characters");
-            valid = false;
-        } else {
-            passwordText.setError(null);
-        }
-
         return valid;
     }
 }
+
